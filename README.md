@@ -11,7 +11,7 @@ python scripts of the different datasets' classes using the standard from https:
 
 ### Folder "Models"
 
-python scripts of the different methods, node classifiaction and link prediction.
+python scripts of the different methods / models
 
 ### Folder "Run"
 
