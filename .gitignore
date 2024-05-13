@@ -3,7 +3,8 @@
 **/*.zip
 **/*.png
 **/*.sh
-Data/valentini/*
+**/*.wav
+Data/*
 Run/Results/
 **/__pycache__/
 *.pyc
