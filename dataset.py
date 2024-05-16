@@ -65,37 +65,12 @@ if __name__ == "__main__":
 
     CUR_DIR_PATH = Path(__file__).parent
     print(CUR_DIR_PATH)
-    path_clean = (
-        CUR_DIR_PATH
-        / "Data"
-        / "testsets"
-        / "test_set"
-        / "synthetic"
-        / "no_reverb"
-        / "clean"
-    )
-    path_noisy = (
-        CUR_DIR_PATH
-        / "Data"
-        / "testsets"
-        / "test_set"
-        / "synthetic"
-        / "no_reverb"
-        / "noisy"
-    )
+    path_clean = CUR_DIR_PATH / "Data" / "training_set" / "clean"
+    path_noisy = CUR_DIR_PATH / "Data" / "training_set" / "noisy"
 
     dataset = DatasetCleanNoisy(
-        path_clean=path_clean, path_noisy=path_noisy, subset="testing"
+        path_clean=path_clean, path_noisy=path_noisy, subset="training"
     )
-    print(len(dataset))
-
-    print(dataset.data_clean[0])
-    print(dataset.data_noisy[0])
-
-    print(dataset[0][0])
-    print(dataset[0][1])
-    print(dataset[0][1].shape)
-
     dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
-    print(next(iter(dataloader)))
+    print(len(dataloader))

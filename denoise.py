@@ -50,7 +50,6 @@ from scipy.io.wavfile import read as wavread
 
 from dataset import DatasetCleanNoisy
 from util import rescale, find_max_epoch, print_size, sampling
-from network import CleanUNet
 from pathlib import Path
 from torch.utils.data import DataLoader
 
@@ -123,7 +122,7 @@ if __name__ == "__main__":
         / "testsets"
         / "test_set"
         / "synthetic"
-        / "no_reverb"
+        / "with_reverb"
         / "clean"
     )
     path_noisy = (
@@ -132,7 +131,7 @@ if __name__ == "__main__":
         / "testsets"
         / "test_set"
         / "synthetic"
-        / "no_reverb"
+        / "with_reverb"
         / "noisy"
     )
 
