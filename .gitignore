@@ -8,7 +8,8 @@ Data/*
 Run/Results/
 **/__pycache__/
 *.pyc
-
+Logs/*
+Logs.*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

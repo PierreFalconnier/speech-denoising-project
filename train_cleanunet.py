@@ -31,6 +31,38 @@ loss_config = {
         "fft_sizes": [512, 1024, 2048],
     },
 }
+
+network_config = {
+    "channels_input": 1,
+    "channels_output": 1,
+    "channels_H": 64,
+    "max_H": 768,
+    "encoder_n_layers": 6,
+    "kernel_size": 4,
+    "stride": 2,
+    "tsfm_n_layers": 3,
+    "tsfm_n_head": 5,
+    "tsfm_d_model": 256,
+    "tsfm_d_inner": 1024,
+}
+
+# network_config = {
+#     "channels_input": 1,
+#     "channels_output": 1,
+#     "channels_H": 64,
+#     "max_H": 768,
+#     "encoder_n_layers": 8,
+#     "kernel_size": 4,
+#     "stride": 2,
+#     "tsfm_n_layers": 3,
+#     "tsfm_n_head": 8,
+#     "tsfm_d_model": 512,
+#     "tsfm_d_inner": 2048,
+# }
+
+from network import CleanUNet
+
+
 if __name__ == "__main__":
 
     # PARSER
@@ -79,9 +111,7 @@ if __name__ == "__main__":
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
 
     # MODEL
-    features = [16, 32, 64, 128, 256]
-    model = UNet1D(in_channels=1, out_channels=1, features=features).to(device)
-    # print(model)
+    model = CleanUNet(**network_config).to(device)
     print("Trainable parameters:")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
@@ -104,7 +134,7 @@ if __name__ == "__main__":
     )
 
     # LOGGER
-    features_str = "-".join(map(str, features))
+    # features_str = "-".join(map(str, features))
     name = Path(__file__).name[:-3]
     name += (
         "_"
@@ -113,8 +143,6 @@ if __name__ == "__main__":
         + str(args.batch_size)
         + "_"
         + str(args.lr)[2:]
-        + "_"
-        + features_str
         + "_"
         + "cleanunet_"
         + args.dataset
@@ -138,7 +166,7 @@ if __name__ == "__main__":
     hparams = {
         "lr": args.lr,
         "batch_size": args.batch_size,
-        "features": features_str,
+        # "features": features_str,
     }
 
     step = 0
@@ -149,6 +177,7 @@ if __name__ == "__main__":
             clean_audio = clean_audio.to(device)
             noisy_audio = noisy_audio.to(device)
 
+            # back-propagation
             optimizer.zero_grad()
             X = (clean_audio, noisy_audio)
 
@@ -191,16 +220,16 @@ if __name__ == "__main__":
                     "Learning-rate", optimizer.param_groups[0]["lr"], step
                 )
 
-            # KEEP TRACK OF IMPROVMENT
-            if best_val_loss > val_loss and step > (10 * args.log_interval):
-                best_val_loss = val_loss
-                best_state_dict = model.state_dict().copy()
-                torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
-                counter = 0
-            else:
-                counter += 1
+                # KEEP TRACK OF IMPROVMENT
+                if best_val_loss > val_loss and step > (10 * args.log_interval):
+                    best_val_loss = val_loss
+                    best_state_dict = model.state_dict().copy()
+                    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
+                    counter = 0
+                else:
+                    counter += 1
 
-            prev_val_loss = val_loss
+                prev_val_loss = val_loss
 
             # # EARLY STOPPING
             # if counter == early_stopping_tol:
