@@ -52,6 +52,10 @@ from dataset import DatasetCleanNoisy
 from util import rescale, find_max_epoch, print_size, sampling
 from pathlib import Path
 from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split
+from unet import UNet1D
+
+torch.manual_seed(0)
 
 
 # def denoise(output_directory, ckpt_iter, subset, dump=False):
@@ -67,6 +71,7 @@ def denoise(output_directory, dataset, net, device, dump=False):
     dump (bool):                    whether save enhanced (denoised) audio
     """
 
+    dataset.sample_rate = 16000
     dataloader = DataLoader(dataset, batch_size=1)
 
     net.eval()
@@ -104,64 +109,45 @@ def denoise(output_directory, dataset, net, device, dump=False):
 
 if __name__ == "__main__":
 
-    # #  PARSER TO BE ADDED IN THE FUTURE
-    # parser = argparse.ArgumentParser()
-    # parser.add_argument('-c', '--path_clean', type=str)
-    # parser.add_argument('-n', '--path_noisy', type=str)
-    # parser.add_argument('-f', '--model_config', type=str)
-    # parser.add_argument('-m', '--model_path', type=str)
-    # parser.add_argument('-o', '--output_path', type=str)
-    # args = parser.parse_args()
-
     # DATASET
-    CUR_DIR_PATH = Path(__file__).parent
+    CUR_DIR_PATH = Path(__file__)
+    ROOT = CUR_DIR_PATH.parents[0]
 
-    path_clean = (
-        CUR_DIR_PATH
-        / "Data"
-        / "testsets"
-        / "test_set"
-        / "synthetic"
-        / "with_reverb"
-        / "clean"
-    )
-    path_noisy = (
-        CUR_DIR_PATH
-        / "Data"
-        / "testsets"
-        / "test_set"
-        / "synthetic"
-        / "with_reverb"
-        / "noisy"
-    )
-
+    path_clean = ROOT / "Data" / "training_set" / "clean"
+    path_noisy = ROOT / "Data" / "training_set" / "noisy"
     dataset = DatasetCleanNoisy(
-        path_clean=path_clean, path_noisy=path_noisy, subset="testing"
+        path_clean=path_clean,
+        path_noisy=path_noisy,
+        subset="training",
+        crop_length_sec=10,
+    )
+
+    # split
+    total_size = len(dataset)
+    train_size = int(0.7 * total_size)
+    val_size = int(0.15 * total_size)
+    test_size = total_size - train_size - val_size
+
+    train_dataset, val_dataset, test_dataset = random_split(
+        dataset, [train_size, val_size, test_size]
     )
 
     # OUTPUT DIR
-    OUTPUT_DIR = CUR_DIR_PATH / "Data" / "Enhanced"
+    OUTPUT_DIR = ROOT / "Data" / "Enhanced"
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # MODEL
-    model_path = CUR_DIR_PATH / "Saved_models" / "large_full_pretrained.pkl"
-    model_config = CUR_DIR_PATH / "Saved_models" / "DNS-large-full.json"
-
-    # predefine model
-    with open(str(model_config)) as f:
-        data = f.read()
-    config = json.loads(data)
-    network_config = config["network_config"]
-    net = CleanUNet(**network_config)
-    print_size(net)
-
-    # load it
-    checkpoint = torch.load(model_path, map_location="cpu")
-    net.load_state_dict(checkpoint["model_state_dict"])
+    model_path = ROOT / "Saved_models" / "best_model.pt"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    net.to(device)
+    features = [16, 32, 64, 128, 256]
+    model = UNet1D(in_channels=1, out_channels=1, features=features)
+
+    # load trained model
+    model_state_dict = torch.load(model_path, map_location="cpu")
+    model.load_state_dict(model_state_dict)
+    model.to(device)
 
     # DENOISE
     all_clean_audio, all_generated_audio = denoise(
-        OUTPUT_DIR, dataset, net, device, True
+        OUTPUT_DIR, val_dataset, model, device, True
     )
