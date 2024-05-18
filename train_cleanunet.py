@@ -70,9 +70,11 @@ if __name__ == "__main__":
     parser.add_argument("--nitermax", type=int, default=25000)
     parser.add_argument("--batch-size", type=int, default=3)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--log-interval", type=int, default=10)
-    parser.add_argument("--dataset", type=str, default="reverb_training_set")
+    parser.add_argument("--log-interval-train", type=int, default=10)
+    parser.add_argument("--log-interval-val", type=int, default=500)
+    parser.add_argument("--dataset", type=str)
     args = parser.parse_args()
+    print(args)
 
     # IMPORTATIONS & DEVICE
     CUR_DIR_PATH = Path(__file__)
@@ -96,8 +98,8 @@ if __name__ == "__main__":
 
     # split
     total_size = len(dataset)
-    train_size = int(0.7 * total_size)
-    val_size = int(0.15 * total_size)
+    train_size = int(0.8 * total_size)
+    val_size = int(0.10 * total_size)
     test_size = total_size - train_size - val_size
 
     train_dataset, val_dataset, test_dataset = random_split(
@@ -106,10 +108,15 @@ if __name__ == "__main__":
 
     # DATALOADERS
     train_dataloader = DataLoader(
-        train_dataset, batch_size=args.batch_size, shuffle=True
+        train_dataset,
+        batch_size=args.batch_size,
+        shuffle=True,
+        pin_memory=True,
+        num_workers=6,
     )
-    val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size)
-
+    val_dataloader = DataLoader(
+        val_dataset, batch_size=args.batch_size, pin_memory=True, num_workers=6
+    )
     # MODEL
     model = CleanUNet(**network_config).to(device)
     print("Trainable parameters:")
@@ -144,7 +151,6 @@ if __name__ == "__main__":
         + "_"
         + str(args.lr)[2:]
         + "_"
-        + "cleanunet_"
         + args.dataset
     )
     LOG_DIR = ROOT / "Logs" / name
@@ -159,84 +165,92 @@ if __name__ == "__main__":
     SAVED_MODEL_DIR = ROOT / "Saved_models" / name
     SAVED_MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
-    early_stopping_tol = 5
+    early_stopping_tol = 10
     prev_val_loss = float("inf")
     counter = 0
 
     hparams = {
         "lr": args.lr,
         "batch_size": args.batch_size,
-        # "features": features_str,
     }
 
     step = 0
-    while step < args.nitermax:
+    with tqdm(total=args.nitermax) as pbar:
 
-        for clean_audio, noisy_audio, _ in tqdm(train_dataloader):
+        while step < args.nitermax:
 
-            clean_audio = clean_audio.to(device)
-            noisy_audio = noisy_audio.to(device)
+            for clean_audio, noisy_audio, _ in train_dataloader:
 
-            # back-propagation
-            optimizer.zero_grad()
-            X = (clean_audio, noisy_audio)
+                clean_audio = clean_audio.to(device)
+                noisy_audio = noisy_audio.to(device)
 
-            loss, loss_dic = loss_fn(model, X, **loss_config, mrstftloss=criterion)
+                optimizer.zero_grad()
+                X = (clean_audio, noisy_audio)
 
-            loss.backward()
+                loss, loss_dic = loss_fn(model, X, **loss_config, mrstftloss=criterion)
 
-            grad_norm = nn.utils.clip_grad_norm_(model.parameters(), 1e9)
+                loss.backward()
 
-            optimizer.step()
-            scheduler.step()
+                grad_norm = nn.utils.clip_grad_norm_(model.parameters(), 1e9)
 
-            if step % args.log_interval == 0:
-                writer.add_scalar(
-                    "train_loss_step",
-                    loss.item(),
-                    step,
-                )
+                optimizer.step()
+                scheduler.step()
 
-            # VALIDATION
-            if step % (50 * args.log_interval) == 0:
-                model.eval()
-                with torch.no_grad():
-                    val_loss = 0.0
-                    for clean_audio, noisy_audio, _ in val_dataloader:
-                        clean_audio = clean_audio.to(device)
-                        noisy_audio = noisy_audio.to(device)
-                        X = (clean_audio, noisy_audio)
-                        loss, loss_dic = loss_fn(
-                            model, X, **loss_config, mrstftloss=criterion
+                if step % args.log_interval_train == 0:
+                    writer.add_scalar(
+                        "train_loss_step",
+                        loss.item(),
+                        step,
+                    )
+                    writer.add_scalar(
+                        "Learning-rate", optimizer.param_groups[0]["lr"], step
+                    )
+
+                # VALIDATION
+                if step % args.log_interval_val == 0:
+                    model.eval()
+                    with torch.no_grad():
+                        val_loss = 0.0
+                        for clean_audio, noisy_audio, _ in val_dataloader:
+                            clean_audio = clean_audio.to(device)
+                            noisy_audio = noisy_audio.to(device)
+                            X = (clean_audio, noisy_audio)
+                            loss, loss_dic = loss_fn(
+                                model, X, **loss_config, mrstftloss=criterion
+                            )
+                            val_loss += loss.item()
+                    val_loss /= len(val_dataloader)
+                    writer.add_scalar(
+                        "val_loss_step",
+                        val_loss,
+                        step,
+                    )
+
+                    # KEEP TRACK OF IMPROVMENT
+                    if best_val_loss > val_loss:
+                        best_val_loss = val_loss
+                        best_state_dict = model.state_dict().copy()
+                        torch.save(
+                            model.state_dict(), SAVED_MODEL_DIR / "best_model.pt"
                         )
-                        val_loss += loss.item()
-                val_loss /= len(val_dataloader)
-                writer.add_scalar(
-                    "val_loss_step",
-                    val_loss,
-                    step,
-                )
-                writer.add_scalar(
-                    "Learning-rate", optimizer.param_groups[0]["lr"], step
-                )
+                        counter = 0
+                    else:
+                        counter += 1
 
-                # KEEP TRACK OF IMPROVMENT
-                if best_val_loss > val_loss and step > (10 * args.log_interval):
-                    best_val_loss = val_loss
-                    best_state_dict = model.state_dict().copy()
-                    torch.save(model.state_dict(), SAVED_MODEL_DIR / "best_model.pt")
-                    counter = 0
-                else:
-                    counter += 1
+                    prev_val_loss = val_loss
 
-                prev_val_loss = val_loss
+                # # EARLY STOPPING
+                # if counter == early_stopping_tol:
+                #     print("stopped early")
+                #     steps = args.nitermax  # to end while loop
+                #     break
 
-            # # EARLY STOPPING
-            # if counter == early_stopping_tol:
-            #     print("stopped early")
-            #     break
+                step += 1
+                pbar.update(1)
+                if step == args.nitermax:
+                    break
 
-            step += 1
+    torch.save(model.state_dict(), SAVED_MODEL_DIR / "last_model.pt")
 
     # Log hyperparameters and metrics
     writer.add_hparams(

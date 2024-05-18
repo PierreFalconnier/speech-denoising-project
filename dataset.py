@@ -47,7 +47,7 @@ class DatasetCleanNoisy(Dataset):
         assert crop_length < len(clean_audio)
 
         # random crop
-        if self.subset != "test" and crop_length > 0:
+        if self.subset != "testing" and crop_length > 0:
             start = np.random.randint(low=0, high=len(clean_audio) - crop_length + 1)
             clean_audio = clean_audio[start : (start + crop_length)]
             noisy_audio = noisy_audio[start : (start + crop_length)]
