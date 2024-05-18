@@ -37,28 +37,14 @@ network_config = {
     "channels_output": 1,
     "channels_H": 64,
     "max_H": 768,
-    "encoder_n_layers": 6,
+    "encoder_n_layers": 8,
     "kernel_size": 4,
     "stride": 2,
-    "tsfm_n_layers": 3,
-    "tsfm_n_head": 5,
-    "tsfm_d_model": 256,
-    "tsfm_d_inner": 1024,
+    "tsfm_n_layers": 5,
+    "tsfm_n_head": 8,
+    "tsfm_d_model": 512,
+    "tsfm_d_inner": 2048,
 }
-
-# network_config = {
-#     "channels_input": 1,
-#     "channels_output": 1,
-#     "channels_H": 64,
-#     "max_H": 768,
-#     "encoder_n_layers": 8,
-#     "kernel_size": 4,
-#     "stride": 2,
-#     "tsfm_n_layers": 3,
-#     "tsfm_n_head": 8,
-#     "tsfm_d_model": 512,
-#     "tsfm_d_inner": 2048,
-# }
 
 from network import CleanUNet
 
@@ -118,7 +104,12 @@ if __name__ == "__main__":
         val_dataset, batch_size=args.batch_size, pin_memory=True, num_workers=6
     )
     # MODEL
-    model = CleanUNet(**network_config).to(device)
+    pkl_path = "/home/pierre/Documents/kth/Speech_and_Speaker_recognition_DT2119/speech-denoising-project/Cleanunet_pretrained/pretrained_large_full.pkl"
+    model = CleanUNet(**network_config)
+    model_state_dict = torch.load(pkl_path, map_location="cpu")["model_state_dict"]
+
+    model.load_state_dict(model_state_dict)
+    model.to(device)
     print("Trainable parameters:")
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
