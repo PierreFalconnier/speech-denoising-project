@@ -1,0 +1,65 @@
+================ DNS TEST SET NO REVERB
+
+unet (train_unet_15000_6_0002_16-32-64-128-256_noisy_training_set/last_model.pt)
+pesq_wb = 1.227
+pesq_nb = 1.546
+stoi = 0.760
+
+
+cleanunet (train_cleanunet_25000_3_0002_noisy_training_set/last_model.pt)
+pesq_wb = 1.285
+pesq_nb = 1.645
+stoi = 0.832
+
+
+pretrained_cleanunet (pretrained_large_full.pkl) 
+pesq_wb = 3.138
+pesq_nb = 3.545
+stoi = 0.977
+
+=============== NOISY OUR TEST SET
+
+unet (train_unet_15000_6_0002_16-32-64-128-256_noisy_training_set/last_model.pt)
+pesq_wb = 1.111
+pesq_nb = 1.325
+stoi = 0.542
+
+
+cleanunet (train_cleanunet_25000_3_0002_noisy_training_set/last_model.pt)
+pesq_wb = 1.150
+pesq_nb = 1.403
+stoi = 0.631
+
+
+pretrained_cleanunet (pretrained_large_full.pkl)
+pesq_wb = 1.491
+pesq_nb = 1.931
+stoi = 0.674
+
+=============== REVERB OUR TEST SET
+
+
+unet (train_unet_15000_6_0002_16-32-64-128-256_reverb_training_set/last_model.pt)
+pesq_wb = 1.199
+pesq_nb = 1.578
+stoi = 0.656
+
+
+cleanunet (train_cleanunet_25000_3_0002_reverb_training_set/last_model.pt)
+pesq_wb = 1.381
+pesq_nb = 1.780
+stoi = 0.753
+
+
+pretrained_cleanunet (pretrained_large_full.pkl)
+pesq_wb = 1.836
+pesq_nb = 2.357
+stoi = 0.755
+
+
+pretrained_cleanunet (train_finetune_cleanunet_25000_3_0002_reverb_training_set/best_model.pt)
+pesq_wb = 1.915
+pesq_nb = 2.422
+stoi = 0.871
+
+
