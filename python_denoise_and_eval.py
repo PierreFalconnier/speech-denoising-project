@@ -113,7 +113,7 @@ if __name__ == "__main__":
     path_noisy = Path(args.dataset_path) / "noisy"
     # if using dns testset
     subset = "testing" if "testsets" in str(path_clean) else "training"
-    crop_length_sec = 0 if "testsets" in str(path_clean) else 0
+    crop_length_sec = 0 if "testsets" in str(path_clean) else 10
 
     dataset = DatasetCleanNoisy(
         path_clean=path_clean,
@@ -136,16 +136,6 @@ if __name__ == "__main__":
     else:
         raise NotImplementedError
 
-    # OUTPUT DIR
-    name = (
-        "Enhanced_"
-        + args.network
-        + "_"
-        + args.dataset_path.split("/")[-1].split("_")[0]
-    )
-    OUTPUT_DIR = ROOT / "Data" / name
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
     # MODEL
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)
@@ -163,18 +153,37 @@ if __name__ == "__main__":
     if args.network != "pretrained_cleanunet":
         model_state_dict = torch.load(args.model_path, map_location="cpu")
     else:
-        model_state_dict = torch.load(args.model_path, map_location="cpu")[
-            "model_state_dict"
-        ]
+        if "fine" in args.model_path:
+            model_state_dict = torch.load(args.model_path, map_location="cpu")
+        else:
+            model_state_dict = torch.load(args.model_path, map_location="cpu")[
+                "model_state_dict"
+            ]
 
     model.load_state_dict(model_state_dict)
     model.to(device)
+
+    # OUTPUT DIR
+    name = (
+        "Enhanced_"
+        + args.model_path.split("/")[-2]
+        + "_"
+        + args.dataset_path.split("/")[-1].split("_")[0]
+    )
+    OUTPUT_DIR = ROOT / "Data" / name
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # DENOISE
     result = denoise_and_eval(OUTPUT_DIR, test_dataset, model, device, True)
 
     # logging
-    for key in result:
-        if key != "count":
-            print("{} = {:.3f}".format(key, result[key] / result["count"]), end=", ")
-    print("==========================================")
+    with open("results.txt", "a") as file:
+
+        print(args, file=file)
+
+        for key in result:
+            if key != "count":
+                print(
+                    "{} = {:.3f}".format(key, result[key] / result["count"]), file=file
+                )
+        print("\n", file=file)
